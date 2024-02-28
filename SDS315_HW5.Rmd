@@ -1,0 +1,113 @@
+---
+title: "SDS315_HW5"
+output: html_document
+date: "2024-02-20"
+---
+Name: Ankita Chitturi
+
+EID: ac86269
+
+Github Link: https://github.com/ankitachitturi/SDS315_HW5.git
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(mosaic)
+library(dplyr)
+library(kableExtra)
+library(stringr)
+```
+### Problem 1: Are the observed data (70 flagged trades out of 2021) consistent with the SEC's null hypothesis that, over the long run, securities trades from the Iron Bank are flagged at the same 2.4% baseline rate as that of other traders?
+
+```{r, echo=FALSE, results=FALSE}
+flagged = do(100000)*nflip(n=2021, prob=0.024)
+
+ggplot(flagged) + 
+  geom_histogram(aes(x=nflip), col='black',fill='pink',binwidth=1) + theme_classic()
+
+p_value = (sum(flagged >= 70))/100000
+```
+
+The null hypothesis is that there is no difference between flagged trades of iron bank and the baseline rate of 0.024. The test statistic used to measure evidence is approximately 0.0346, and the p-value is `r (sum(flagged >= 70))/100000`. Since the p-value is less than 0.05, we reject the null hypothesis. The null hypothesis does not look plausible in the light of data because the p-value is lower than the significance level of 0.05, suggesting there is strong evidence to reject the null.
+
+
+### Problem 2: Are the observed sata for Gourmet Bites consistent with the Health Department's null hypothesis that, on average, restaurants in the city are cited for health code violations at the same 3% baseline rate. 
+
+```{r, echo=FALSE, results=FALSE}
+health = do(100000)*nflip(n=1500, prob=0.033)
+
+ggplot(health) + 
+  geom_histogram(aes(x=nflip), col='black',fill='pink',binwidth=1) + theme_classic()
+
+p_value2 = (sum(health >= 50))/100000
+```
+
+The null hypothesis is that there is no difference between the rate at which the Gourmet Bites' restaurants are cited for health violations and the citywide average baseline rate of 3% for the same violations in all restaurants. The test statistic used is 3% (50 out of 1500) and the p-value is `r (sum(health >= 50))/100000`. Since the p-value is greater than 0.05, we fail to reject the null hypothesis. In the light of this data, the calculated p-value is above the significance level of 0.05, meaning that there is insufficient evidence to reject the given null hypothesis (fail to reject the null). 
+
+### Problem 3: One of these sentences has been produced by an LLM, but watermarked by asking the LLM to subtly adjust its frequency distribution over letters. Which sentence is it? How do you know?
+
+```{r, echo=FALSE}
+file <- 'letter.csv'
+letter_freq <- read.csv(file)
+lines <- readLines(file('brown_sentences.txt'))
+
+calculate_chi_squared <- function(line, freq_table) {
+  freq_table$Probability <- freq_table$Probability / sum(freq_table$Probability)
+
+  lines <- gsub("[^A-Za-z]", "", line)
+  lines <- toupper(lines)
+  
+  observed_counts <- table(factor(strsplit(lines, "")[[1]], levels = freq_table$Letter))
+  total_letters <- sum(observed_counts)
+  expected_counts <- total_letters * freq_table$Probability
+  
+  chi_squared_statistic <- sum((observed_counts-expected_counts)^2 / expected_counts)
+  
+  return(chi_squared_statistic)
+}
+
+chi_squared <- numeric(length(lines))
+
+for (i in seq_along(lines)) {
+  chi_squared[i] <- calculate_chi_squared(lines[i], letter_freq)
+}
+```
+
+```{r, echo=FALSE}
+sentences <- c(
+  "She opened the book and started to read the first chapter, eagerly anticipating what might come next.", "Despite the heavy rain, they decided to go for a long walk in the park, crossing the main avenue by the
+fountain in the center.", "The museum’s new exhibit features ancient artifacts from various civilizations around the world.", "He carefully examined the document, looking for any clues that might help solve the mystery.", "The students gathered in the auditorium to listen to the guest speaker’s inspiring lecture.", "Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to
+Auckland.", "The chef demonstrated how to prepare a delicious meal using only locally sourced ingredients, focusingmainly on some excellent dinner recipes from Spain.", "They watched the sunset from the hilltop, marveling at the beautiful array of colors in the sky.", "The committee reviewed the proposal and provided many points of useful feedback to improve the
+project’s effectiveness.", "Despite the challenges faced during the project, the team worked tirelessly to ensure its successful
+completion, resulting in a product that exceeded everyone’s expectations."
+)
+
+chi_squared2 <- numeric(length(sentences))
+for (i in seq_along(sentences)) {
+  chi_squared2[i] <- calculate_chi_squared(sentences[i], letter_freq)
+}
+
+calc_p_value <- function(chi_squared_values, freq_table){
+  df <- nrow(freq_table) - 1
+  
+  p_values <- pchisq(chi_squared_values, df = df, lower.tail = FALSE)
+  p_values <- round(p_values, 3)
+  
+  return(p_values)
+}
+
+p_values2 <- calc_p_value(chi_squared2, letter_freq)
+
+p_values <- tibble (
+  sentence = 1:length(chi_squared2),
+  p_value = p_values2
+)
+
+kable(p_values, format = "markdown")
+```
+
+Sentence number 6 was produced by an LLM which is concluded by its p-value of exactly 0.000. This values indicates an extreme deviation from the expected letter frequencies. Based on the calculations, it is said that sentence number 6 is the one that has been watermarked by asking the LLM to subtly adjust its frequency distribution over letters. 
+
+
+
